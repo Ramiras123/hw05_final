@@ -6,8 +6,8 @@ from .forms import PostForm, CommentForm
 from .models import Post, Group, Comment, Follow
 from django.views.decorators.cache import cache_page
 
-CACHE_TIME = 20
 SELECT_LIMIT = 10
+CACHE_TIME = 20
 
 
 @cache_page(CACHE_TIME)
@@ -138,4 +138,3 @@ def profile_unfollow(request, username):
     )
     user_follower.delete()
     return redirect('posts:profile', username=username)
-
