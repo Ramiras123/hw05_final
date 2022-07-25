@@ -270,8 +270,8 @@ class PaginatorViewsTest(TestCase):
         number_posts_on_page = len(response.context['page_obj'])
         self.assertEqual(number_posts_on_page, expected)
 
-class FollowViewsTest(TestCase):
 
+class FollowViewsTest(TestCase):
     def setUp(self):
         self.follower = User.objects.create_user(username='Follower')
         self.authorized_client = Client()
