@@ -84,3 +84,6 @@ class StaticURLTests(TestCase):
         self.assertRedirects(
             self.guest_client.get('/create/'),
             '/auth/login/' + '?next=' + '/create/')
+
+
+

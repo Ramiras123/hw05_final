@@ -19,6 +19,7 @@ from django.contrib import admin
 from django.urls import path, include
 
 handler404 = 'core.views.page_not_found'
+handler500 = 'core.views.server_error'
 
 urlpatterns = [
     path('', include('posts.urls')),
