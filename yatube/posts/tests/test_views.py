@@ -7,6 +7,8 @@ from django.conf import settings
 import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
+import shutil
+from ..views import SELECT_LIMIT
 
 POSTS_PER_PAGE = 10
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
@@ -66,6 +68,11 @@ class PostViewTests(TestCase):
         )
         cache.clear()
 
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
     def test_index_cache(self):
         """Кеширование index.html работает."""
         content = self.authorized_client_1.get(
@@ -100,17 +107,18 @@ class PostViewTests(TestCase):
         response = self.authorized_client_1.get(reverse('posts:index'))
 
     def test_home_page_show_correct_context(self):
-        """Шаблон index сформирован с правильным контекстом."""
+        """Шаблон index сформирован с правильным контекстом и картинкой."""
         response = self.authorized_client_1.get(reverse('posts:index'))
         posts_from_context = response.context.get('page_obj').object_list
         expected_posts = list(Post.objects.all())
         self.assertEqual(posts_from_context, expected_posts,
                          'Главная страница выводит не все посты!'
                          )
-        self.assertEqual(posts_from_context[0].image, self.post_3.image)
+        self.assertEqual(posts_from_context[0].image, self.post_3.image,
+                         'Картинка не выводится')
 
     def test_group_list_page_show_correct_context(self):
-        """Шаблон group_list сформирован с правильным контекстом."""
+        """Шаблон group_list сформирован с правильным контекстом и картинкой."""
         response = self.authorized_client_1.get(
             reverse('posts:group_list', args=[self.group_2.slug])
         )
@@ -123,10 +131,11 @@ class PostViewTests(TestCase):
         self.assertEqual(group_from_context, self.group_2,
                          'Страница группы отличается от группы из контекста!'
                          )
-        self.assertEqual(posts_from_context[0].image, self.post_3.image)
+        self.assertEqual(posts_from_context[0].image, self.post_3.image,
+                         'Картинка не выводится')
 
     def test_profile_page_show_correct_context(self):
-        """Шаблон profile сформирован с правильным контекстом."""
+        """Шаблон profile сформирован с правильным контекстом и выводом картинки."""
         response = self.authorized_client_1.get(
             reverse('posts:profile', args=[self.author_1.username])
         )
@@ -139,10 +148,11 @@ class PostViewTests(TestCase):
         self.assertEqual(author_from_context, self.author_1,
                          'Автор из контекста не совпадает с профилем!'
                          )
-        self.assertEqual(posts_from_context[0].image, self.post_3.image)
+        self.assertEqual(posts_from_context[0].image, self.post_3.image,
+                         'Картинка не выводится')
 
     def test_post_detail_show_correct_context(self):
-        """Шаблон post_detail сформирован с правильным контекстом."""
+        """Шаблон post_detail сформирован с правильным контекстом и выводом картинки."""
         response = self.authorized_client_1.get(
             reverse('posts:post_detail', args=[self.post_3.id])
         )
@@ -155,7 +165,8 @@ class PostViewTests(TestCase):
         self.assertEqual(number_posts_author, expected_number,
                          'Количество постов автора из контекста неверно!'
                          )
-        self.assertEqual(post_from_context.image, self.post_3.image)
+        self.assertEqual(post_from_context.image, self.post_3.image,
+                         'Картинка не выводится')
 
     def test_create_post_show_correct_context(self):
         """Шаблон create_post сформирован с правильным контекстом."""
@@ -225,50 +236,38 @@ class PaginatorViewsTest(TestCase):
         """Создаем клиента и 15 постов."""
         self.client = Client()
         self.number_create_posts = 15
-        posts = []
-        for i in range(self.number_create_posts):
-            posts.append(Post.objects.create(
+        posts = [Post(
                 text=f'test_text_{i}',
                 author=self.author,
-                group=self.group))
+                group=self.group)
+            for i in range(self.number_create_posts)
+        ]
+        self.posts = Post.objects.bulk_create(posts)
+        self.second_page = Post.objects.count() % SELECT_LIMIT
 
-    def test_index_page(self):
-        """Проверяет пагинацию главной страницы."""
-        self._check_correct_pagination(reverse('posts:index'), POSTS_PER_PAGE)
-        self._check_correct_pagination(
-            reverse('posts:index') + '?page=2',
-            self.number_create_posts % POSTS_PER_PAGE
-        )
-
-    def test_group_list_page(self):
-        """Проверяет пагинацию страницы списка групп."""
-        self._check_correct_pagination(
-            reverse('posts:group_list', args=[self.group.slug]),
-            POSTS_PER_PAGE
-        )
-        self._check_correct_pagination(
-            reverse('posts:group_list', args=[self.group.slug]) + '?page=2',
-            self.number_create_posts % POSTS_PER_PAGE
-        )
-
-    def test_profile_page(self):
-        """Проверяет пагинацию страницы профиля автора."""
-        self._check_correct_pagination(
-            reverse('posts:profile', args=[self.author.username]),
-            POSTS_PER_PAGE
-        )
-        self._check_correct_pagination(
-            reverse('posts:profile', args=[self.author.username]) + '?page=2',
-            self.number_create_posts % POSTS_PER_PAGE
-        )
-
-    def _check_correct_pagination(self, url_page: str, expected: int) -> None:
-        """Сравнивает количество постов на запрошенной странице с ожидаемым
-        результатом.
-        """
-        response = self.client.get(url_page)
-        number_posts_on_page = len(response.context['page_obj'])
-        self.assertEqual(number_posts_on_page, expected)
+    def test_pages_uses_correct_template(self):
+        """URL-адрес использует соответствующий шаблон."""
+        templates_page_number = {
+            reverse('posts:index'): SELECT_LIMIT,
+            reverse('posts:index') + '?page=2': self.second_page,
+            reverse(
+                'posts:group_list', kwargs={'slug': 'group_test'}
+            ): SELECT_LIMIT,
+            reverse(
+                'posts:group_list', kwargs={'slug': 'group_test'}
+            ) + '?page=2': self.second_page,
+            reverse(
+                'posts:profile', kwargs={'username': self.author.username}
+            ): SELECT_LIMIT,
+            reverse(
+                'posts:profile', kwargs={'username': self.author.username}
+            ) + '?page=2': self.second_page
+        }
+        for reverse_name, page_number in templates_page_number.items():
+            with self.subTest(reverse_name=reverse_name):
+                response = self.client.get(reverse_name)
+                self.assertEqual(
+                    len(response.context['page_obj']), page_number)
 
 
 class FollowViewsTest(TestCase):

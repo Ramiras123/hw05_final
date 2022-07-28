@@ -20,6 +20,7 @@ class StaticURLTests(TestCase):
             author=cls.author,
             group=cls.group
         )
+        cls.post_id = cls.post.id
         cls.template_url_names = {
             reverse('posts:index'): ['posts/index.html', HTTPStatus.OK],
             reverse('posts:group_list', kwargs={'slug': cls.group.slug}):
@@ -46,6 +47,10 @@ class StaticURLTests(TestCase):
         self.authorized_client.force_login(self.not_author)
         self.authorized_client_author = Client()
         self.authorized_client_author.force_login(self.author)
+        self.authorized_client_not_author = Client()
+        self.authorized_client_not_author.force_login(
+            StaticURLTests.not_author
+        )
         cache.clear()
 
     def test_homepage(self):
@@ -84,3 +89,10 @@ class StaticURLTests(TestCase):
         self.assertRedirects(
             self.guest_client.get('/create/'),
             '/auth/login/' + '?next=' + '/create/')
+
+    def test_post_edit_redirect_auth_user_no_author(self):
+        """Страница post/<int>/edit/ переадресует авторизованного НЕавтора"""
+        response = self.authorized_client_not_author.get(
+            reverse('posts:post_edit', kwargs={'post_id': StaticURLTests.post_id}),
+            follow=True)
+        self.assertRedirects(response, reverse('posts:index'))
