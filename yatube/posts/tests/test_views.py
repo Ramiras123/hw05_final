@@ -118,7 +118,8 @@ class PostViewTests(TestCase):
                          'Картинка не выводится')
 
     def test_group_list_page_show_correct_context(self):
-        """Шаблон group_list сформирован с правильным контекстом и картинкой."""
+        """Шаблон group_list сформирован
+         с правильным контекстом и картинкой."""
         response = self.authorized_client_1.get(
             reverse('posts:group_list', args=[self.group_2.slug])
         )
@@ -135,7 +136,8 @@ class PostViewTests(TestCase):
                          'Картинка не выводится')
 
     def test_profile_page_show_correct_context(self):
-        """Шаблон profile сформирован с правильным контекстом и выводом картинки."""
+        """Шаблон profile сформирован
+         с правильным контекстом и выводом картинки."""
         response = self.authorized_client_1.get(
             reverse('posts:profile', args=[self.author_1.username])
         )
@@ -143,7 +145,7 @@ class PostViewTests(TestCase):
         author_from_context = response.context.get('author')
         expected_posts = list(Post.objects.filter(author_id=self.author_1.id))
         self.assertEqual(posts_from_context, expected_posts,
-                         'Посты из контекста пренадлежать другому автору!'
+                         'Посты из контекста принадлежать другому автору!'
                          )
         self.assertEqual(author_from_context, self.author_1,
                          'Автор из контекста не совпадает с профилем!'
@@ -152,7 +154,8 @@ class PostViewTests(TestCase):
                          'Картинка не выводится')
 
     def test_post_detail_show_correct_context(self):
-        """Шаблон post_detail сформирован с правильным контекстом и выводом картинки."""
+        """Шаблон post_detail сформирован
+        с правильным контекстом и выводом картинки."""
         response = self.authorized_client_1.get(
             reverse('posts:post_detail', args=[self.post_3.id])
         )
